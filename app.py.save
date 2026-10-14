@@ -1,0 +1,9 @@
+chancado:
+  bond_work_index_default: 13.5  # kWh/t (Fuente: Bond, F.C., 1952)
+  f80_default_um: 50000.0        # µm (Alimentación típica chancado secundario/terciario)
+  p80_default_um: 12000.0        # µm (Producto objetivo)
+  tonelaje_default_tph: 350.0    # t/h
+  capacidad_max_operativa_kw: 450.0 # kW nominales del motor del chancador
+  eficiencia_mecanica: 0.92      # Factor de eficiencia de transmisión
+
+
