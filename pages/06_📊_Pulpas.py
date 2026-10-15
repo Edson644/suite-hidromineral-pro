@@ -1,91 +1,100 @@
-"""
-Interfaz de Usuario - Módulo 6: Pulpas y Relaves
-Suite Hidromineral Pro
-"""
-
-import sys
-import os
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 import streamlit as st
 import numpy as np
-import pandas as pd
 import plotly.express as px
-from core.pulpas import calcular_sistema_bombeo_pulpa
+import plotly.graph_objects as go
 
-st.title("Módulo 6: Transporte de Pulpas y Relaves")
+# Configuración de la página
+st.set_page_config(page_title="Módulo 6: Pulpas y Reología | Suite Hidromineral", page_icon="📈", layout="wide")
 
-st.markdown("""
-Este módulo calcula la **hidráulica de tuberías** para pulpas mineras, evaluando la gravedad específica, 
-la velocidad operacional frente a la velocidad límite de depósito y la potencia requerida de bombeo.
-""")
+st.title("📈 Módulo 6: Pulpas, Reología y Transporte de Sedimentos")
+st.markdown("Control de concentración volumétrica, viscosidad, tensión de fluencia, velocidad límite de depósito y regímenes de flujo.")
 
+# --- ENTRADAS OPERACIONALES ---
+st.markdown("### 📥 Parámetros Físico-Químicos de la Pulpa")
 col1, col2 = st.columns(2)
 
 with col1:
-    m_solidos = st.number_input("Tonelaje de Sólidos (t/h)", min_value=50.0, max_value=5000.0, value=2330.0, step=50.0, key="m_sol")
-    dens_sol = st.number_input("Densidad de Sólidos (t/m3)", min_value=2.0, max_value=5.0, value=2.68, step=0.05, key="dens_sol")
-    cw = st.number_input("Concentración en Peso (Cw, %)", min_value=10.0, max_value=75.0, value=50.0, step=1.0, key="cw_in")
+    cp = st.number_input("Concentración en Peso (Cp %)", value=65.0, step=1.0)
+    d50 = st.number_input("Tamaño de Partícula D50 (µm)", value=75.0, step=5.0)
+    sg_solido = st.number_input("Gravedad Específica del Sólido (SG)", value=2.72, step=0.01)
+
 with col2:
-    diam_pipe = st.number_input("Diámetro de Tubería (mm)", min_value=100.0, max_value=1200.0, value=500.0, step=25.0, key="diam_in")
-    long_pipe = st.number_input("Longitud de Tubería (m)", min_value=10.0, max_value=20000.0, value=55.0, step=10.0, key="long_in")
-    alt_est = st.number_input("Altura Estática (m)", min_value=0.0, max_value=500.0, value=18.4, step=1.0, key="alt_in")
+    diametro_tuberia = st.number_input("Diámetro de la Tubería (pulgadas)", value=10.0, step=1.0)
+    velocidad_operacion = st.number_input("Velocidad Actual en Línea (m/s)", value=2.2, step=0.1)
+    viscosidad_vehiculo = st.number_input("Viscosidad del Fluido Portador (cP)", value=1.0, step=0.1)
 
-try:
-    res = calcular_sistema_bombeo_pulpa(
-        m_solidos_tph=m_solidos,
-        densidad_solidos=dens_sol,
-        cw_porcentaje=cw,
-        diametro_tuberia_mm=diam_pipe,
-        longitud_tuberia_m=long_pipe,
-        altura_estatica_m=alt_est,
-        d85_mm=0.67
-    )
-    
-    st.divider()
-    
-    kpi1, kpi2, kpi3 = st.columns(3)
-    kpi1.metric("Gravedad Específica (Sm)", f"{res['Gravedad_Especifica_Sm']:,.3f}".replace(",", "X").replace(".", ",").replace("X", "."))
-    kpi2.metric("Velocidad Operacional", f"{res['Velocidad_Operativa_ms']:,.2f} m/s".replace(",", "X").replace(".", ",").replace("X", "."))
-    kpi3.metric("Potencia de Bombeo", f"{res['Potencia_Requerida_kW']:,.1f} kW".replace(",", "X").replace(".", ",").replace("X", "."))
+# Cálculos reológicos y de velocidad límite (Modelo de Durand / Wasp simplificado)
+cv = (cp / sg_solido) / ((cp / sg_solido) + ((100 - cp) / 1.0)) * 100  # Concentración volumétrica aprox
+# Estimación empírica de la velocidad límite de depositación (Velocidad Crítica Vc)
+d_m = diametro_tuberia * 0.0254 # convertir a metros
+vc_limite = 1.34 * (2 * 9.81 * d_m * (sg_solido - 1)) ** 0.5 * (cv / 100) ** 0.17
+if vc_limite < 1.2: vc_limite = 1.2
 
-    if "SEGURO" in res["Estado_Transporte"]:
-        st.success(f"ESTADO HIDRÁULICO: {res['Estado_Transporte']}. (Velocidad límite: {res['Velocidad_Limite_Dep_ms']} m/s)")
-    else:
-        st.error(f"ALERTA OPERATIVA: {res['Estado_Transporte']}. Riesgo inminente de atollo en la línea.")
+st.markdown("---")
+st.markdown("### 📊 Resultados y Balances Reológicos")
+m1, m2, m3 = st.columns(3)
+m1.metric("Concentración Volumétrica (Cv)", f"{cv:.1f}%")
+m2.metric("Velocidad Límite de Depósito (Vc)", f"{vc_limite:.2f} m/s")
+m3.metric("Margen Operativo (V_op - Vc)", f"{velocidad_operacion - vc_limite:+.2f} m/s")
 
-    st.subheader("1. Velocidad Operacional vs Diámetro de Tubería")
-    diam_arr = np.linspace(300, 800, 40)
-    vel_arr = []
-    vel_lim_arr = []
-    for d in diam_arr:
-        tmp = calcular_sistema_bombeo_pulpa(m_solidos, dens_sol, cw, d, long_pipe, alt_est, 0.67)
-        vel_arr.append(tmp["Velocidad_Operativa_ms"])
-        vel_lim_arr.append(tmp["Velocidad_Limite_Dep_ms"])
-        
-    df_hidro = pd.DataFrame({
-        "Diámetro (mm)": np.tile(diam_arr, 2),
-        "Velocidad (m/s)": vel_arr + vel_lim_arr,
-        "Tipo": ["Velocidad Operacional"]*40 + ["Velocidad Límite (Depósito)"]*40
-    })
-    fig_hidro = px.line(df_hidro, x="Diámetro (mm)", y="Velocidad (m/s)", color="Tipo", title="Criterio de Velocidad No-Sedimentante en Tubería")
-    st.plotly_chart(fig_hidro, use_container_width=True, key="fig_hidro_pulpas")
+st.markdown("---")
 
-    st.subheader("2. Análisis Técnico")
-    st.markdown(f"""
-    - La pulpa presenta una gravedad específica de **{res['Gravedad_Especifica_Sm']}** con un caudal volumétrico de **{res['Caudal_Volumetrico_m3h']:,.2f} m3/h**.
-    - La velocidad en la tubería de {diam_pipe} mm es de **{res['Velocidad_Operativa_ms']} m/s**, superior al límite de depósito de **{res['Velocidad_Limite_Dep_ms']} 
-m/s**.
-    - La presión total en el sistema alcanza **{res['Presion_Sistema_bar']} bar** con una carga dinámica total de **{res['Altura_Total_Head_m']} m**.
-    """)
+# --- GRÁFICOS TÉCNICOS DE INGENIERÍA ---
+st.markdown("### 📈 Análisis Visual e Ingeniería de Transporte")
 
-    st.subheader("3. Conclusiones y Recomendaciones Operativas")
-    st.markdown("""
-    - Mantener el control estricto de la concentración en peso (Cw) para evitar aumentos desproporcionados de viscosidad aparente.
-    - Monitorear el desgaste por abrasión en codos y tramos rectos de la línea de descarga de relaves.
-    """)
+# Gráfico 1: Pérdida de Carga y Regímenes de Flujo (Curva de los Tres Estados / Velocidad Límite)
+st.markdown("#### 1. Curva de Pérdida de Carga y Velocidad Límite de Depósito")
 
-except Exception as e:
-    st.error(f"Error en los cálculos hidráulicos: {e}")
+# Generar rango de velocidades para la curva característica de pulpas
+v_range = np.linspace(0.5, 4.5, 50)
+# Modelo de pérdida de carga hidráulica (fluidos no newtonianos / sedimentables)
+# Zona 1: Lecho móvil / Depositación (izq de Vc), Zona 2: Suspensión Heterogénea, Zona 3: Suspensión Homogénea (der)
+perdida_carga = 0.05 * (v_range ** -1.8) * (cv / 50) + 0.03 * (v_range ** 1.8)
 
+fig_transporte = go.Figure()
+
+fig_transporte.add_trace(go.Scatter(
+    x=v_range, y=perdida_carga,
+    mode='lines',
+    name='Pérdida de Carga (It/m)',
+    line=dict(color='#00e5ff', width=3)
+))
+
+# Línea vertical de la velocidad límite de depósito
+fig_transporte.add_vline(
+    x=vc_limite, line_dash="dash", line_color="#ff9100",
+    annotation_text=f"Velocidad Límite (Vc = {vc_limite:.2f} m/s)", annotation_position="top right"
+)
+
+# Línea de velocidad de operación actual
+fig_transporte.add_vline(
+    x=velocidad_operacion, line_dash="solid", line_color="#b6ff00",
+    annotation_text=f"Operación ({velocidad_operacion} m/s)", annotation_position="top left"
+)
+
+fig_transporte.update_layout(
+    title="Curva Operativa y Transición de Regímenes (Velocidad Límite)",
+    xaxis_title="Velocidad de Pulpa en Tubería (m/s)",
+    yaxis_title="Pérdida de Carga (m.c.a. / m)",
+    plot_bgcolor="#161b22", paper_bgcolor="#0b0f12", font_color="#f0f2f5",
+    xaxis=dict(showgrid=True, gridcolor="#30363d"),
+    yaxis=dict(showgrid=True, gridcolor="#30363d"),
+    height=420,
+    legend=dict(x=0.05, y=0.92)
+)
+st.plotly_chart(fig_transporte, use_container_width=True)
+
+st.markdown("---")
+
+# --- ANÁLISIS TÉCNICO Y CONCLUSIONES ---
+st.markdown("### 2. Análisis Técnico")
+st.markdown(f"""
+- El cálculo estima una **velocidad límite de depositación de {vc_limite:.2f} m/s** para una tubería de {diametro_tuberia} pulgadas con un Cp de {cp}%.
+- Con la velocidad de operación actual de **{velocidad_operacion} m/s**, el sistema se encuentra {'operando en régimen seguro por encima del límite crítico de sedimento' if velocidad_operacion >= vc_limite else 'EN ZONA DE RIESGO DE ATASCAMIENTO por debajo de la velocidad crítica'}.
+""")
+
+st.markdown("### 3. Conclusiones y Recomendaciones Operativas")
+st.markdown("""
+- **Zonas de Estado Operativo**: El gráfico de fricción evidencia las tres zonas críticas (flujo con lecho móvil a bajas velocidades, transición heterogénea y suspensión homogénea a altas velocidades).
+- Se recomienda mantener la velocidad de bombeo al menos un 15% por encima de la velocidad límite calculada para evitar asentamientos imprevistos en tramos horizontales de la cañería.
+""")

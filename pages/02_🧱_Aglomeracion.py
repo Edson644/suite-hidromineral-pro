@@ -1,77 +1,88 @@
-"""
-Interfaz de Usuario - Módulo 2: Aglomeración
-Suite Hidromineral Pro
-"""
-
-import sys
-import os
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 import streamlit as st
-import numpy as np
-import plotly.express as px
-from core.aglomeracion import calcular_aglomeracion
 
-st.title("Módulo 2: Aglomeración de Minerales")
+# Configuración de la página
+st.set_page_config(page_title="Aglomeración y Pilas | Suite Hidromineral Pro", page_icon="🧪", layout="wide")
 
+# --- ESTILOS CSS CONSISTENTES (Estética Oscura / Neón) ---
 st.markdown("""
-Este módulo calcula la **humedad óptima** y la **resistencia verde** del aglomerado en función 
-de las adiciones de cemento, ácido y porcentaje de finos, asegurando la permeabilidad del lecho en pilas.
-""")
+    <style>
+    .stApp { background-color: #0b0f12; color: #f0f2f5; }
+    [data-testid="stSidebar"] { background-color: #12161c; border-right: 1px solid #1f2937; }
+    .card { background-color: #161b22; border: 1px solid #30363d; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+    h1, h2, h3 { color: #ffffff; font-family: 'Inter', sans-serif; }
+    </style>
+""", unsafe_allow_html=True)
 
+st.title("🧪 Módulo 2: Preparación y Tambor de Aglomeración")
+st.markdown("Control avanzado de humectación, adición de ácido sulfúrico, cinética de aglomerado y prevención de segregación en pilas.")
+
+# --- SECCIÓN 1: VARIABLES OPERACIONALES DEL TAMBOR ---
+st.markdown("### 📥 1. Parámetros Operacionales y Cinéticos del Tambor")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    cemento = st.number_input("Adición de Cemento (kg/t)", min_value=0.0, max_value=30.0, value=15.0, step=0.5)
+    tph_mineral = st.number_input("Alimentación de Mineral Seco (TPH)", min_value=100.0, max_value=10000.0, value=1500.0, step=50.0)
+    humedad_inicial = st.slider("Humedad Inicial del Mineral (%)", min_value=0.5, max_value=10.0, value=3.2, step=0.1)
+
 with col2:
-    acido = st.number_input("Adición de Ácido (kg/t)", min_value=0.0, max_value=30.0, value=12.0, step=0.5)
+    humedad_objetivo = st.slider("Humedad Objetivo en Tambor (%)", min_value=4.0, max_value=15.0, value=8.5, step=0.1)
+    dosificacion_acido = st.number_input("Dosificación de Ácido Concentrado (kg/t)", min_value=0.0, max_value=30.0, value=6.5, step=0.5)
+
 with col3:
-    finos = st.number_input("Porcentaje de Finos (< 200 mesh, %)", min_value=5.0, max_value=80.0, value=35.0, step=1.0)
+    vel_tambor = st.slider("Velocidad de Giro del Tambor (RPM)", min_value=4.0, max_value=20.0, value=9.5, step=0.5)
+    concentracion_acido = st.slider("Pureza del Ácido de Aporte (%)", min_value=50.0, max_value=98.0, value=93.0, step=1.0)
 
-try:
-    res = calcular_aglomeracion(cemento, acido, finos)
-    humedad = res["humedad_optima_pct"]
-    resistencia = res["resistencia_verde_kpa"]
+# --- LÓGICA DE CÁLCULO TÉCNICO (BALANCE DE MASA Y AGUA) ---
+agua_inicial_tph = tph_mineral * (humedad_inicial / 100.0)
+agua_meta_tph = tph_mineral * (humedad_objetivo / 100.0)
+delta_agua_tph = max(0.0, agua_meta_tph - agua_inicial_tph)
 
-    st.divider()
+# Consumo horario de ácido y cálculo del caudal volumétrico de la solución de aspersión
+acido_kg_h = tph_mineral * dosificacion_acido
+caudal_solucion_l_min = ((delta_agua_tph * 1000.0) + (acido_kg_h / (concentracion_acido / 100.0))) / 60.0
 
-    kpi1, kpi2 = st.columns(2)
-    kpi1.metric("Humedad Óptima", f"{humedad:,.2f} %".replace(",", "X").replace(".", ",").replace("X", "."))
-    kpi2.metric("Resistencia Verde", f"{resistencia:,.2f} kPa".replace(",", "X").replace(".", ",").replace("X", "."))
+# Índice de Calidad de Aglomeración (Evaluación de estabilidad del grumo)
+indice_aglomeracion = max(40.0, min(99.5, 100.0 - abs(humedad_objetivo - 8.2) * 6.5))
 
-    if res["alerta_resistencia"]:
-        st.error("⚠️ **ALERTA OPERATIVA**: Resistencia verde insuficiente (< 12 kPa). Riesgo alto de compactación y canalización de soluciones en la pila.")
-    else:
-        st.success("✅ **CONDICIÓN ÓPTIMA**: Resistencia mecánica adecuada para el apilamiento y transporte.")
+st.markdown("---")
+st.markdown("### 📊 2. Resultados del Balance Hidrometalúrgico y Calidad de Grumo")
 
-    st.subheader("1. Gráfico: Resistencia Verde vs Humedad Operativa")
+c_res1, c_res2, c_res3, c_res4 = st.columns(4)
 
-    hum_vals = np.linspace(max(4.0, humedad - 4.0), humedad + 4.0, 40)
-    res_vals = [max(2.0, resistencia - 5.0 * ((h - humedad)**2)) for h in hum_vals]
-
-    fig = px.line(x=hum_vals, y=res_vals, labels={"x": "Humedad (%)", "y": "Resistencia Verde (kPa)"}, title="Curva de Comportamiento Mecánico del Aglomerado")
-    fig.add_scatter(x=[humedad], y=[resistencia], mode="markers", marker=dict(size=14, color="red"), name="Punto Operativo")
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.subheader("2. Análisis Técnico")
+with c_res1:
     st.markdown(f"""
-    - Con una adición de **{cemento} kg/t** de cemento y **{acido} kg/t** de ácido, el punto operativo se ubica en **{humedad:.2f}%** de humedad.
-    - La resistencia verde obtenida es de **{resistencia:.2f} kPa**, garantizando estabilidad estructural bajo cargas de apilamiento industrial.
-    """)
+        <div class="card">
+            <p style="color: #8b949e; font-size: 11px; margin: 0;">AGUA DE APORTE A SPRAY</p>
+            <h3 style="color: #b6ff00; margin: 6px 0 0 0;">{delta_agua_tph * 1000:.1f} kg/h</h3>
+            <p style="color: #3fb950; font-size: 10px; margin: 2px 0 0 0;">Requerimiento hídrico</p>
+        </div>
+    """, unsafe_allow_html=True)
 
-    st.subheader("3. Conclusiones")
-    st.markdown("""
-    - La aglomeración asegura la cohesión de las partículas finas alrededor de los gruesos, previniendo la segregación.
-    - Un control estricto del agua de aporte evita la saturación y el colapso del lecho capilar.
-    """)
+with c_res2:
+    st.markdown(f"""
+        <div class="card">
+            <p style="color: #8b949e; font-size: 11px; margin: 0;">CONSUMO TOTAL DE ÁCIDO</p>
+            <h3 style="color: #ffffff; margin: 6px 0 0 0;">{acido_kg_h:.1f} kg/h</h3>
+            <p style="color: #8b949e; font-size: 10px; margin: 2px 0 0 0;">Curado en tambor</p>
+        </div>
+    """, unsafe_allow_html=True)
 
-    st.subheader("4. Recomendaciones Operativas")
-    st.markdown("""
-    - Sincronizar los flujos de solución aglomerante en el tambor con la ley de alimentación de mineral seco.
-    - Realizar ensayos de resistencia al corte en verde de forma periódica en planta piloto.
-    """)
+with c_res3:
+    st.markdown(f"""
+        <div class="card">
+            <p style="color: #8b949e; font-size: 11px; margin: 0;">CAUDAL SPRAY COMBINADO</p>
+            <h3 style="color: #b6ff00; margin: 6px 0 0 0;">{caudal_solucion_l_min:.1f} L/min</h3>
+            <p style="color: #3fb950; font-size: 10px; margin: 2px 0 0 0;">Flujo inyectado en boquillas</p>
+        </div>
+    """, unsafe_allow_html=True)
 
-except Exception as e:
-    st.error(f"Error en los cálculos: {e}")
+with c_res4:
+    st.markdown(f"""
+        <div class="card">
+            <p style="color: #8b949e; font-size: 11px; margin: 0;">ESTABILIDAD DE GRUMOS</p>
+            <h3 style="color: {'#3fb950' if indice_aglomeracion > 85 else '#f85149'}; margin: 6px 0 0 0;">{indice_aglomeracion:.1f}%</h3>
+            <p style="color: #8b949e; font-size: 10px; margin: 2px 0 0 0;">Índice de aglomeración</p>
+        </div>
+    """, unsafe_allow_html=True)
 
+st.info("💡 **Subetapa Crítica — Criterio Operativo:** Si el índice de aglomeración baja del 80%, se incrementa drásticamente el riesgo de segregación de finos en la pila, compactación del lecho y canalización preferencial de las soluciones de riego.")

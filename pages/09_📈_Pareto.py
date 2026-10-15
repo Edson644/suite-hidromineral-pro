@@ -1,125 +1,206 @@
-"""
-Interfaz de Usuario - Módulo 9: Análisis de Pareto y Confiabilidad Operacional por Módulos
-Suite Hidromineral Pro
-"""
-
 import streamlit as st
-import pandas as pd
+import plotly.express as px
 import plotly.graph_objects as go
+import pandas as pd
 
-st.title("Módulo 9: Análisis de Pareto y Confiabilidad por Módulos")
+# Configuración de la página
+st.set_page_config(page_title="Consolidado de Paretos | Suite Hidromineral", page_icon="📈", layout="wide")
 
-st.markdown("""
-Este módulo presenta el análisis de fallas y tiempos de detención (Ley de Pareto 80/20) para cada área crítica del proceso hidrometalúrgico, 
-permitiendo enfocar los planes de mantenimiento y confiabilidad operacional en las causas vitales.
-""")
+st.title("📈 Consolidado de Análisis de Pareto por Módulo")
+st.markdown("Centro de análisis de criticidad y factores de mayor impacto (Principio 80/20) para cada etapa del proceso hidromineral.")
 
-# Selector de módulo para navegar entre los Paretos de cada área
+# --- SELECTOR DE MÓDULOS ---
 modulo_seleccionado = st.selectbox(
-    "Seleccione el Módulo Operativo a Analizar:",
+    "Seleccione el Módulo Operacional o Financiero a Analizar:",
     [
-        "1. Chancado y Conminución",
-        "2. Aglomeración",
-        "3. Lixiviación en Pilas",
-        "4. Extracción por Solvente (SX)",
-        "5. Electroobtención (EW)",
-        "6. Pulpas y Relaves",
-        "7. Balances y Recuperación Global"
+        "Módulo 1: Chancado y Harneado",
+        "Módulo 2: Aglomeración",
+        "Módulo 3: Lixiviación (Pilas)",
+        "Módulo 4: Extracción por Solventes (SX)",
+        "Módulo 5: Electroobtención (EW)",
+        "Módulo 6: Pulpas y Reología",
+        "Módulo 7: Balances Metalúrgicos",
+        "Módulo 8: Finanzas y Evaluación Económica"
     ]
 )
 
-st.divider()
+st.markdown("---")
 
-# Diccionario con los datos de Pareto específicos para cada módulo
-datos_paretos = {
-    "1. Chancado y Conminución": {
-        "Fallas": ["Desgaste de Blindajes / Liners", "Atasco en Alimentador / Grizzly", "Falla Sistema Hidráulico", "Temperatura Alta en Cojinetes", "Corte de Energía Menor"],
-        "Horas": [42.5, 26.0, 12.0, 6.5, 3.0]
+# --- DICCIONARIO DE DATOS PARA CADA PARETO ---
+pareto_data = {
+    "Módulo 1: Chancado y Harneado": {
+        "titulo": "Diagrama de Pareto - Pérdidas y Restricciones en Chancado",
+        "causas": [
+            "Desgaste prematuro de blindajes / martillos",
+            "Sobrecarga por material ultra-fino o humedad",
+            "Atascamientos en tolvas y chutes de transferencia",
+            "Fallas en sistemas hidráulicos de ajuste",
+            "Baja eficiencia de clasificación en harneros",
+            "Otros tiempos muertos mecánicos"
+        ],
+        "impacto": [36.0, 28.0, 18.0, 10.0, 5.0, 3.0]
     },
-    "2. Aglomeración": {
-        "Fallas": ["Variación de humedad en tambor", "Desgaste de paletas mezcladoras", "Colmatación de boquillas de ácido", "Segregación de finos en correa"],
-        "Horas": [28.0, 21.0, 15.0, 8.0]
+    "Módulo 2: Aglomeración": {
+        "titulo": "Diagrama de Pareto - Desviaciones Operativas en Aglomeración",
+        "causas": [
+            "Variación en la dosificación de ácido y aglomerante",
+            "Humedad deficiente en el tambor aglomerador",
+            "Segregación granulométrica en la formación de pilas",
+            "Rotura de glóbulos por transporte excesivo",
+            "Variación en las propiedades físico-químicas del mineral",
+            "Problemas de alimentación en correas"
+        ],
+        "impacto": [40.0, 24.0, 18.0, 10.0, 5.0, 3.0]
     },
-    "3. Lixiviación en Pilas": {
-        "Fallas": ["Canalización y compactación de lecho", "Obstrucción de goteros / Emisores", "Rotura de tuberías de solución madre", "Disminución de potencial redox (Eh)"],
-        "Horas": [47.0, 29.0, 14.0, 10.0]
+    "Módulo 3: Lixiviación (Pilas)": {
+        "titulo": "Diagrama de Pareto - Pérdidas y Restricciones en Lixiviación",
+        "causas": [
+            "Canales Preferenciales / Compactación",
+            "Granulometría Gruesa (Sub-chancado)",
+            "Tasa de Riego Insuficiente / Taponamiento",
+            "Baja Cinética por Temperatura de Solución",
+            "Fallas en Sistema de Impermeabilización",
+            "Otros Factores Operacionales"
+        ],
+        "impacto": [38.0, 26.0, 18.0, 10.0, 5.0, 3.0]
     },
-    "4. Extracción por Solvente (SX)": {
-        "Fallas": ["Formación de emulsiones / Cruds", "Arrastre orgánico hacia electrolito", "Descalibración de medidores de pH", "Falla en sellos de bombas centrífugas"],
-        "Horas": [37.5, 25.0, 13.0, 5.0]
+    "Módulo 4: Extracción por Solventes (SX)": {
+        "titulo": "Diagrama de Pareto - Pérdidas y Criticidad en Trenes SX",
+        "causas": [
+            "Arrastre Orgánico en PLS / Acuoso",
+            "Formación de Emulsiones / Barros en Interfaces",
+            "Desviación en Relación Operativa O/A",
+            "Baja Eficiencia de Transferencia en Mixer",
+            "Degradación del Reactivo (Oxima)",
+            "Problemas de Coalescencia en Settler"
+        ],
+        "impacto": [40.0, 25.0, 15.0, 10.0, 7.0, 3.0]
     },
-    "5. Electroobtención (EW)": {
-        "Fallas": ["Cortocircuitos ánodo-cátodo", "Contaminación orgánica en celdas", "Desgaste de contactos eléctricos", "Baja temperatura del electrolito"],
-        "Horas": [45.0, 28.0, 13.0, 7.0]
+    "Módulo 5: Electroobtención (EW)": {
+        "titulo": "Diagrama de Pareto - Pérdidas Energéticas y Operacionales en EW",
+        "causas": [
+            "Cortocircuitos por Nodulación en Cátodos",
+            "Aumento de Resistencia en Contactos Eléctricos",
+            "Baja Eficiencia Farádica por Aditivos",
+            "Fluctuaciones en Voltaje por Celda",
+            "Contaminación del Electrolito (Fe/Cloruros)",
+            "Mantenimiento de Barras y Celdas"
+        ],
+        "impacto": [35.0, 28.0, 17.0, 11.0, 6.0, 3.0]
     },
-    "6. Pulpas y Relaves": {
-        "Fallas": ["Abrasión y desgaste en codos de tubería", "Cavitación en impulsor de bomba", "Sedimentación en línea por baja velocidad", "Falla en instrumentación de densidad"],
-        "Horas": [44.0, 29.0, 15.0, 4.0]
+    "Módulo 6: Pulpas y Reología": {
+        "titulo": "Diagrama de Pareto - Restricciones Hidráulicas y de Transporte",
+        "causas": [
+            "Operación bajo la Velocidad Límite de Depósito",
+            "Variación Abrupta en Concentración (Cp)",
+            "Aumento de Viscosidad Aparente por Fino",
+            "Desgaste Abrasivo en Tuberías / Codos",
+            "Sedimentación en Tramos Horizontales",
+            "Variación Granulométrica (D50)"
+        ],
+        "impacto": [42.0, 24.0, 16.0, 10.0, 5.0, 3.0]
     },
-    "7. Balances y Recuperación Global": {
-        "Fallas": ["Desviación en ley de cabeza", "Errores de muestreo en correa principal", "Inconsistencia en flujómetros de PLS"],
-        "Horas": [35.0, 23.0, 12.0]
+    "Módulo 7: Balances Metalúrgicos": {
+        "titulo": "Diagrama de Pareto - Errores y Desviaciones en Balance Masivo",
+        "causas": [
+            "Inconsistencia en Muestreo de Leyes de Cabeza",
+            "Errores en Medición de Caudales (PLS / Raff)",
+            "Sesgo en Ensayos de Laboratorio",
+            "Acumulación de Inventario no Controlado en Pila",
+            "Pérdidas por Evaporación o Filtraciones",
+            "Discrepancias en Pesaje de Cátodos EW"
+        ],
+        "impacto": [39.0, 27.0, 16.0, 10.0, 5.0, 3.0]
+    },
+    "Módulo 8: Finanzas y Evaluación Económica": {
+        "titulo": "Diagrama de Pareto - Sensibilidad y Riesgos Financieros",
+        "causas": [
+            "Fluctuación en el Precio Internacional del Cobre",
+            "Desviación en el Costo Operacional Unitario (OPEX)",
+            "Variación en la Recuperación Metalúrgica Global",
+            "Aumento en el CAPEX Inicial de Inversión",
+            "Tasa de Descuento / WACC Aplicado",
+            "Costos de Energía y Suministros Críticos"
+        ],
+        "impacto": [45.0, 25.0, 14.0, 9.0, 4.0, 3.0]
     }
 }
 
-# Obtener los datos del módulo seleccionado
-datos_actuales = datos_paretos[modulo_seleccionado]
-df_pareto = pd.DataFrame({
-    "Falla": datos_actuales["Fallas"],
-    "Horas": datos_actuales["Horas"]
+# Obtener datos del módulo seleccionado
+datos_actuales = pareto_data[modulo_seleccionado]
+causas = datos_actuales["causas"]
+impactos = datos_actuales["impacto"]
+
+# Calcular acumulado para la curva de Pareto
+df_p = pd.DataFrame({
+    'Causa': causas,
+    'Impacto (%)': impactos
 })
+df_p['Acumulado (%)'] = df_p['Impacto (%)'].cumsum()
 
-# Cálculos de Pareto (Porcentaje y Acumulado)
-df_pareto = df_pareto.sort_values(by='Horas', ascending=False).reset_index(drop=True)
-df_pareto['Porcentaje'] = (df_pareto['Horas'] / df_pareto['Horas'].sum()) * 100.0
-df_pareto['Porcentaje Acumulado'] = df_pareto['Porcentaje'].cumsum()
+# Lógica de colores dinámica: Rojo para las barras dentro del rango crítico (acumulado previo < 80%) y celeste para el resto
+colores_barras = []
+for i, val in enumerate(df_p['Acumulado (%)']):
+    prev_val = df_p['Acumulado (%)'].iloc[i-1] if i > 0 else 0
+    if prev_val < 80.0:
+        colores_barras.append('#ff5252')  # Rojo crítico (zona vital 80/20)
+    else:
+        colores_barras.append('#29b6f6')  # Celeste normal (triviales)
 
-st.subheader(f"Diagrama de Pareto para: {modulo_seleccionado}")
-
-# Construcción del Gráfico de Doble Eje con Plotly
+# Crear figura combinada de Pareto (Barras + Línea acumulada)
 fig = go.Figure()
 
-fig.add_trace(
-    go.Bar(
-        x=df_pareto['Falla'],
-        y=df_pareto['Horas'],
-        name="Horas de Detención",
-        marker_color='#e74c3c',
-        yaxis='y'
-    )
-)
+# Barras de impacto individual con colores condicionales
+fig.add_trace(go.Bar(
+    x=df_p['Causa'],
+    y=df_p['Impacto (%)'],
+    name='Impacto Individual (%)',
+    marker_color=colores_barras
+))
 
-fig.add_trace(
-    go.Scatter(
-        x=df_pareto['Falla'],
-        y=df_pareto['Porcentaje Acumulado'],
-        name="Porcentaje Acumulado (%)",
-        mode='lines+markers',
-        line=dict(color='#3498db', width=3),
-        yaxis='y2'
-    )
-)
+# Línea de porcentaje acumulado
+fig.add_trace(go.Scatter(
+    x=df_p['Causa'],
+    y=df_p['Acumulado (%)'],
+    name='Acumulado (%)',
+    mode='lines+markers',
+    line=dict(color='#ff9100', width=3),
+    yaxis='y2'
+))
 
+# Configuración de doble eje y diseño visual
 fig.update_layout(
-    title=f"Análisis 80/20 de Fallas - {modulo_seleccionado}",
-    xaxis=dict(title="Causas de Detención / Falla"),
-    yaxis=dict(title="Impacto (Horas / Mes)", side='left', showgrid=True),
-    yaxis2=dict(title="Acumulado (%)", overlaying='y', side='right', range=[0, 105], showgrid=False),
-    legend=dict(x=0.01, y=0.99),
-    template="plotly_dark",
-    margin=dict(l=40, r=40, t=60, b=40)
+    title=datos_actuales["titulo"],
+    plot_bgcolor="#161b22",
+    paper_bgcolor="#0b0f12",
+    font_color="#f0f2f5",
+    xaxis=dict(showgrid=False, tickangle=-20),
+    yaxis=dict(
+        title="Impacto Individual (%)",
+        showgrid=True,
+        gridcolor="#30363d",
+        range=[0, 105]
+    ),
+    yaxis2=dict(
+        title="Impacto Acumulado (%)",
+        overlaying='y',
+        side='right',
+        showgrid=False,
+        range=[0, 105]
+    ),
+    height=480,
+    legend=dict(x=0.02, y=0.95)
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
-st.subheader("2. Análisis de Causas Raíz y Foco de Mejora")
-st.markdown(f"""
-- **Principio 80/20 en {modulo_seleccionado}:** Las principales causas identificadas concentran el mayor impacto operacional del área.
-- **Dónde hincarle el diente (Causas VITALES):** Se debe enfocar el plan de acción prioritario en: **{df_pareto.loc[0, 'Falla']}**.
-""")
-
-st.subheader("3. Recomendaciones de Confiabilidad y Mantenimiento")
-st.markdown("""
-- Implementar mantenimiento predictivo y monitoreo de condición en los equipos críticos identificados en el primer quintil de Pareto.
-- Realizar auditorías operacionales semanales y registrar las detenciones por turno para mitigar la aparición recurrente de estas causas raíz.
-""")
+st.markdown("---")
+st.markdown("### 🔍 Análisis de Criticidad 80/20")
+st.text(
+    f"Enfoque Operacional para '{modulo_seleccionado}': Las barras destacadas en rojo representan los factores críticos "
+    "que concentran el mayor impacto acumulado según el principio de Pareto."
+)
+st.text(
+    "Regla del 80/20: Enfocar los esfuerzos de ingeniería y control operacional en estas causas principales garantiza la mitigación "
+    "efectiva de las principales pérdidas de la planta."
+)
